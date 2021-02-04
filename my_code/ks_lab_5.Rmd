@@ -1,0 +1,84 @@
+---
+title: "ESM 244- Lab 5"
+author: "Katelin Seeto"
+date: "2/3/2021"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+
+library(tidyverse)
+library(here)
+library(tsibble)
+library(feasts)
+library(fable)
+
+```
+
+#### Read in energy data and convert to tsibble 
+```{r}
+energy <- read_csv(here("data", "energy.csv"))
+
+energy_ts <- energy %>% 
+  mutate(date = yearmonth(month)) %>% 
+  as_tsibble(key = NULL, index = date)
+```
+#### Exploratory time series visualization 
+Raw data graph 
+
+```{r}
+ggplot(data = energy_ts, aes(x = date, y = res_total)) +
+  geom_line() +
+  labs(y = "Residential energy consumption \n (Trillion BTU)")
+```
+Seasonplot
+
+```{r}
+energy_ts %>% gg_season(y = res_total) +
+  theme_minimal() + 
+  labs(x = "month",
+       y = "residential energy consumption (trillion BTU)")
+
+
+```
+Subseries plot: 
+```{r}
+energy_ts %>%  gg_subseries(res_total)
+```
+
+Decompositon (here by STL)
+
+```{r}
+dcmp <- energy_ts %>% 
+  model(STL(res_total ~ season()))
+
+components(dcmp) %>% autoplot() +
+  theme_minimal()
+```
+Autocorrelation function (ACF)
+
+```{r}
+energy_ts %>% 
+  ACF(res_total) %>% 
+  autoplot()
+
+```
+D. Forecasting by Holt-Winters exponential smoothing 
+
+```{r}
+# Create the model: 
+energy_fit <- energy_ts %>% 
+  model(ets = ETS(res_total ~ season ("M")))
+
+# Forecast using the model 10 years into the future: 
+energy_forecast <- energy_fit %>% 
+  forecast(h = "10 years")
+
+# Plot just the forecasted values (with 80 & 95% CIs): 
+energy_forecast %>% 
+  autoplot()
+
+
+```
+
